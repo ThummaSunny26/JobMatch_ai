@@ -21,10 +21,13 @@ During the submission review, the following core concepts are key to understandi
 The system prompt in [prompts.py](file:///c:/Users/Admin/Desktop/Job_Match_AI/agent/prompts.py) uses the **ReAct framework** to guide the agent:
 - **Identity**: Sets the persona as "JobMatch AI", an autonomous recruiter.
 - **Workflow**: Provides a step-by-step logic (Search → Score → Save → Verify) to minimize hallucinations.
-- **Constraint-Based Scoring**: Defines specific numeric ranges for edge cases (e.g., 40-55 for missing profiles) to ensure consistent evaluation.
+- **Structured Context**: The agent receives explicit `candidate_name` and `job_description` in its system context to ensure 100% accuracy in target identification.
+- **Constraint-Based Scoring**: Defines specific numeric ranges and a rubric for edge cases (e.g., 40-55 for missing profiles) to ensure consistent evaluation.
 
 ### 2. How the Prompt Guides Tools
-The agent uses **LLM tool binding** (function calling). The model decides which tool to call based on the docstrings and argument schemas defined in [agent.py](file:///c:/Users/Admin/Desktop/Job_Match_AI/agent/agent.py). For example, if the agent's "Thought" determines it needs to find a LinkedIn profile, it automatically identifies the `search_candidate` tool as the matching action.
+The agent uses **LLM tool binding** (function calling). The model decides which tool to call based on the docstrings and argument schemas defined in [agent.py](file:///c:/Users/Admin/Desktop/Job_Match_AI/agent/agent.py). 
+- **Targeted Search**: The `web_search` tool automatically enhances queries with professional keywords (LinkedIn, GitHub, portfolio) to find the most relevant data.
+- **Robust Scoring**: The `jd_scorer` tool uses its own internal LLM chain with a strict JSON schema and scoring rubric to provide structured observations back to the agent.
 
 ### 3. Agentic Flow (LangGraph)
 The flow is orchestrated in [agent.py](file:///c:/Users/Admin/Desktop/Job_Match_AI/agent/agent.py) using a `StateGraph`:
@@ -33,7 +36,7 @@ The flow is orchestrated in [agent.py](file:///c:/Users/Admin/Desktop/Job_Match_
     - `agent_node`: Responsible for reasoning and generating tool calls or final responses.
     - `tool_node`: Executes the requested tools and returns observations to the agent.
 - **Conditional Edge**: The `router` function checks if the LLM generated `tool_calls`. If yes, it routes to `tools`; if no, it routes to `END`.
-- **The Loop**: The cycle between `agent` and `tools` continues until the agent provides a final recommendation or hits the 8-iteration limit.
+- **Production Safeguards**: Includes a maximum iteration limit (8) and comprehensive logging for all tool executions and database operations.
 
 ## 🛠️ Tech Stack
 

@@ -30,46 +30,50 @@ def jd_scorer(candidate_info: str, job_description: str, context_hints: str = No
     )
     
     prompt = ChatPromptTemplate.from_template("""
-    Evaluate the following candidate based on the job description and context hints.
+    You are an expert technical recruiter. Evaluate the following candidate against the job description.
     
     Candidate Info: {candidate_info}
     Job Description: {job_description}
     Context Hints: {context_hints}
     
-    Provide your evaluation in JSON format with the following keys:
-    - score: (int, 0-100)
-    - strengths: (str)
-    - gaps: (str)
-    - recommendation: (str)
+    Output a JSON object with:
+    1. score: (integer 0-100)
+    2. strengths: (concise list of top 3 matches)
+    3. gaps: (concise list of top 3 missing skills or experiences)
+    4. recommendation: (One sentence summary: "Highly Recommend", "Recommend", "Consider", or "Do Not Recommend" with reason)
     
-    Scoring Guidelines:
-    - No online profile found: 40-55
-    - Wrong field candidate: <30
-    - Good match: 70+
+    Scoring Rubric:
+    - 90-100: Exceptional match in all key areas.
+    - 70-89: Strong match with minor gaps.
+    - 40-69: Partial match or insufficient profile data found online.
+    - <40: Mismatched role or severe skill gaps.
     """)
     
     chain = prompt | llm
     
     try:
         response = chain.invoke({
-            "candidate_info": candidate_info,
-            "job_description": job_description,
+            "candidate_info": candidate_info[:4000], # Prevent context window overflow
+            "job_description": job_description[:2000],
             "context_hints": context_hints or "None"
         })
         
         # Extract content and parse JSON
         content = response.content.strip()
         # Handle cases where the model might wrap JSON in markdown blocks
-        if content.startswith("```json"):
-            content = content.replace("```json", "").replace("```", "").strip()
-        elif content.startswith("```"):
-            content = content.replace("```", "").strip()
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
             
-        return json.loads(content)
+        result = json.loads(content)
+        # Ensure numeric score
+        result["score"] = int(result.get("score", 0))
+        return result
     except Exception as e:
         return {
             "score": 0,
             "strengths": "N/A",
-            "gaps": f"Error during evaluation: {str(e)}",
-            "recommendation": "Manual review required"
+            "gaps": f"Error: {str(e)}",
+            "recommendation": "Error during evaluation"
         }

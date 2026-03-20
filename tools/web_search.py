@@ -16,15 +16,30 @@ def web_search(query: str):
 
     client = TavilyClient(api_key=api_key)
     try:
-        # Using search_depth='advanced' as per PRD
-        response = client.search(query=query, search_depth="advanced")
+        # Enhancing the search query to focus on professional profiles
+        professional_query = f"{query} professional profile LinkedIn GitHub portfolio resume"
+        
+        # Using search_depth='advanced' for more comprehensive results
+        response = client.search(
+            query=professional_query, 
+            search_depth="advanced",
+            max_results=5
+        )
         
         results = response.get('results', [])
-        urls = [res.get('url') for res in results]
         
+        # Structure the observation for better LLM parsing
+        formatted_results = []
+        for res in results:
+            formatted_results.append({
+                "title": res.get("title"),
+                "url": res.get("url"),
+                "content": res.get("content")[:1000] # Snippet for context
+            })
+            
         return {
-            "results": results,
-            "urls": urls
+            "results": formatted_results,
+            "urls": [res.get('url') for res in results]
         }
     except Exception as e:
-        return {"results": [], "urls": [], "error": str(e)}
+        return {"results": [], "urls": [], "error": f"Search failed: {str(e)}"}

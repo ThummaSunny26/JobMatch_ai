@@ -10,7 +10,12 @@ from tools.db_tool import db_insert, db_select, db_list, db_top, db_delete
 from agent.prompts import SYSTEM_PROMPT
 import os
 import json
+import logging
 from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Load environment variables from the project root
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
@@ -26,36 +31,43 @@ class AgentState(TypedDict):
 @tool
 def search_candidate(query: str):
     """Search for candidate information online (LinkedIn, GitHub, etc.)."""
+    logger.info(f"Tool Call: search_candidate with query: {query}")
     return web_search(query)
 
 @tool
 def score_candidate(candidate_info: str, job_description: str, context_hints: Union[str, None] = None):
     """Evaluate candidate profile against a job description. Returns score, strengths, gaps, and recommendation."""
+    logger.info("Tool Call: score_candidate")
     return jd_scorer(candidate_info, job_description, context_hints)
 
 @tool
 def insert_candidate_record(name: str, score: int, strengths: str, gaps: str, recommendation: str, profile_url: str):
     """Saves candidate evaluation to the database."""
+    logger.info(f"Tool Call: insert_candidate_record for {name}")
     return db_insert(name, score, strengths, gaps, recommendation, profile_url)
 
 @tool
 def select_candidate_record(name: str):
     """Retrieves candidate record from the database."""
+    logger.info(f"Tool Call: select_candidate_record for {name}")
     return db_select(name)
 
 @tool
 def list_all_candidates():
     """Lists all evaluated candidates from the database."""
+    logger.info("Tool Call: list_all_candidates")
     return db_list()
 
 @tool
 def get_top_candidates(limit: int = 3):
     """Fetches the top-scoring candidates from the database."""
+    logger.info(f"Tool Call: get_top_candidates with limit: {limit}")
     return db_top(limit)
 
 @tool
 def delete_candidate_record(name: str):
     """Deletes a candidate record from the database."""
+    logger.info(f"Tool Call: delete_candidate_record for {name}")
     return db_delete(name)
 
 tools = [
@@ -87,9 +99,10 @@ model = ChatOpenAI(
 def agent_node(state: AgentState):
     """The agent node that generates the thought and chooses an action."""
     messages = state["messages"]
-    # Add SystemMessage if it's the first turn
+    # Add SystemMessage if it's the first turn, including current context
     if not any(isinstance(m, SystemMessage) for m in messages):
-        messages = [SystemMessage(content=SYSTEM_PROMPT)] + messages
+        context_prompt = f"{SYSTEM_PROMPT}\n\nCURRENT CONTEXT:\nCandidate: {state.get('candidate_name')}\nJob Description: {state.get('job_description')}"
+        messages = [SystemMessage(content=context_prompt)] + messages
         
     response = model.invoke(messages)
     

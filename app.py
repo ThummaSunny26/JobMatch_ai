@@ -118,25 +118,29 @@ if menu == "Evaluate Candidate":
     
     with col1:
         with st.form("evaluation_form"):
-            user_query = st.text_area("Candidate & Role Description", placeholder="e.g. Evaluate John Doe for a Python Developer role with focus on Django", height=150)
+            candidate_name = st.text_input("Candidate Name", placeholder="e.g. John Doe")
+            job_description = st.text_area("Job Description", placeholder="Paste the job requirements here...", height=250)
             submit_button = st.form_submit_button("Start Evaluation")
     
     with col2:
         if submit_button:
-            if not user_query:
-                st.error("Please provide a request for the agent.")
+            if not candidate_name or not job_description:
+                st.error("Please provide both the candidate name and the job description.")
             else:
-                st.subheader(f"Processing Request")
+                st.subheader(f"Processing Evaluation for {candidate_name}")
                 
                 # Placeholder for agent thoughts
                 thought_container = st.container()
                 status_placeholder = st.empty()
                 
+                # Construct initial message for the agent
+                user_query = f"Evaluate {candidate_name} for the following job description:\n\n{job_description}"
+                
                 initial_state = {
                     "messages": [HumanMessage(content=user_query)],
                     "iteration_count": 0,
-                    "candidate_name": "",
-                    "job_description": "",
+                    "candidate_name": candidate_name,
+                    "job_description": job_description,
                     "final_recommendation": ""
                 }
                 
