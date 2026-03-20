@@ -6,9 +6,9 @@ Workflow:
 1. Review the candidate name and job description provided in the context.
 2. Use web_search to find candidate profiles (LinkedIn, GitHub, Portfolios).
 3. Use jd_scorer to evaluate the candidate against the job description using the discovered info.
-4. Use db_tool.insert to save the evaluation results.
-5. Use db_tool.select to verify the insertion.
-6. Provide a final recommendation to the user.
+4. Use db_tool.insert to save the evaluation results. IMPORTANT: Use the exact candidate name provided in the context, do not add any prefixes.
+    5. Use db_tool.select to verify the insertion.
+    6. Provide a final recommendation to the user.
 
 ReAct Pattern:
 Thought: Describe your reasoning about the current state and next step.

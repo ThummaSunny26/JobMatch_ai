@@ -204,6 +204,9 @@ elif menu == "Candidate Database":
     st.title("📂 Candidate Database")
     df = get_candidate_data()
     
+    # Clean the name before displaying it
+    df['Name'] = df['Name'].str.replace("Score ", "", regex=False)
+    
     if df.empty:
         st.warning("The database is currently empty. Evaluate some candidates first!")
     else:
@@ -232,11 +235,13 @@ elif menu == "Top Candidates":
         st.info("No candidates found in the database.")
     else:
         for i, cand in enumerate(top_candidates):
+            # Clean the name before displaying
+            clean_name = cand['name'].replace("Score ", "")
             with st.container():
                 st.markdown(f"""
                 <div class="candidate-card">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin: 0;">#{i+1} {cand['name']}</h3>
+                        <h3 style="margin: 0;">#{i+1} {clean_name}</h3>
                         <span class="score-badge">{cand['score']}/100</span>
                     </div>
                     <p style="margin-top: 10px;"><strong>Recommendation:</strong> {cand['recommendation']}</p>

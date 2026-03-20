@@ -18,7 +18,7 @@ def get_connection():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS candidates (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
+                name TEXT NOT NULL UNIQUE,
                 score INTEGER,
                 strengths TEXT,
                 gaps TEXT,
