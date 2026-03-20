@@ -241,6 +241,3 @@ elif menu == "Top Candidates":
                 </div>
                 """, unsafe_allow_html=True)
 
-# Footer
-st.markdown("---")
-st.markdown("Built with ❤️ by JobMatch AI Team")
