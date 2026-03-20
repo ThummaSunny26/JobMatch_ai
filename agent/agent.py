@@ -26,6 +26,8 @@ class AgentState(TypedDict):
     iteration_count: int
     candidate_name: str
     job_description: str
+    user_context: str # For user-provided hints
+    evaluation_result: Dict # Stores the last evaluation (score, strengths, etc.)
     final_recommendation: str
 
 # Define Tools for the agent
@@ -42,10 +44,10 @@ def get_profile_content(url: str):
     return fetch_profile_content(url)
 
 @tool
-def score_candidate_profiles(candidate_info: str, job_description: str):
-    """Evaluates aggregated profile content against a job description."""
+def score_candidate_profiles(candidate_info: str, job_description: str, context_hints: Union[str, None] = None):
+    """Evaluates aggregated profile content against a job description, using contextual hints if available."""
     logger.info("Tool Call: score_candidate_profiles")
-    return jd_scorer(candidate_info, job_description)
+    return jd_scorer(candidate_info, job_description, context_hints)
 
 @tool
 def insert_candidate_record(name: str, score: int, strengths: str, gaps: str, recommendation: str, profile_url: str):
@@ -93,7 +95,6 @@ model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 base_url = None
 if api_key and api_key.startswith("sk-or-v1"):
     base_url = "https://openrouter.ai/api/v1"
-    # For OpenRouter, ensure model name is prefixed correctly if it's not already
     if "/" not in model_name:
         model_name = f"openai/{model_name}"
 
@@ -107,25 +108,25 @@ model = ChatOpenAI(
 def agent_node(state: AgentState):
     """The agent node that generates the thought and chooses an action."""
     messages = state["messages"]
-    # Add SystemMessage if it's the first turn, including current context
     if not any(isinstance(m, SystemMessage) for m in messages):
-        context_prompt = f"{SYSTEM_PROMPT}\n\nCURRENT CONTEXT:\nCandidate: {state.get('candidate_name')}\nJob Description: {state.get('job_description')}"
+        context_prompt = f"{SYSTEM_PROMPT}\n\nCURRENT CONTEXT:\nCandidate: {state.get('candidate_name')}\nJob Description: {state.get('job_description')}\nUser-Provided Context: {state.get('user_context')}"
         messages = [SystemMessage(content=context_prompt)] + messages
         
     response = model.invoke(messages)
     
-    # Update iteration count
     return {
         "messages": [response],
         "iteration_count": state.get("iteration_count", 0) + 1
     }
 
 def tool_node(state: AgentState):
-    """The node that executes the chosen tool."""
+    """The node that executes the chosen tool and updates evaluation state if needed."""
     messages = state["messages"]
     last_message = messages[-1]
     
     tool_messages = []
+    evaluation_result = state.get("evaluation_result", {})
+    
     for tool_call in last_message.tool_calls:
         tool_name = tool_call["name"]
         tool_args = tool_call["args"]
@@ -143,12 +144,20 @@ def tool_node(state: AgentState):
         }[tool_name]
         
         observation = tool_func.invoke(tool_args)
+        
+        # If we just scored the candidate, update the state's evaluation result
+        if tool_name == "score_candidate_profiles" and isinstance(observation, dict):
+            evaluation_result = observation
+            
         tool_messages.append(ToolMessage(
             tool_call_id=tool_call["id"],
             content=json.dumps(observation)
         ))
         
-    return {"messages": tool_messages}
+    return {
+        "messages": tool_messages,
+        "evaluation_result": evaluation_result
+    }
 
 def router(state: AgentState):
     """Determines the next step in the graph."""
