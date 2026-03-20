@@ -6,6 +6,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, System
 from langchain_core.tools import tool
 from tools.web_search import web_search
 from tools.jd_scorer import jd_scorer
+from tools.fetch_profile import fetch_profile_content
 from tools.db_tool import db_insert, db_select, db_list, db_top, db_delete
 from agent.prompts import SYSTEM_PROMPT
 import os
@@ -29,16 +30,22 @@ class AgentState(TypedDict):
 
 # Define Tools for the agent
 @tool
-def search_candidate(query: str):
-    """Search for candidate information online (LinkedIn, GitHub, etc.)."""
-    logger.info(f"Tool Call: search_candidate with query: {query}")
+def find_professional_profiles(query: str):
+    """Finds professional profile URLs (LinkedIn, GitHub) for a candidate."""
+    logger.info(f"Tool Call: find_professional_profiles with query: {query}")
     return web_search(query)
 
 @tool
-def score_candidate(candidate_info: str, job_description: str, context_hints: Union[str, None] = None):
-    """Evaluate candidate profile against a job description. Returns score, strengths, gaps, and recommendation."""
-    logger.info("Tool Call: score_candidate")
-    return jd_scorer(candidate_info, job_description, context_hints)
+def get_profile_content(url: str):
+    """Fetches the full text content from a single profile URL."""
+    logger.info(f"Tool Call: get_profile_content for URL: {url}")
+    return fetch_profile_content(url)
+
+@tool
+def score_candidate_profiles(candidate_info: str, job_description: str):
+    """Evaluates aggregated profile content against a job description."""
+    logger.info("Tool Call: score_candidate_profiles")
+    return jd_scorer(candidate_info, job_description)
 
 @tool
 def insert_candidate_record(name: str, score: int, strengths: str, gaps: str, recommendation: str, profile_url: str):
@@ -71,8 +78,9 @@ def delete_candidate_record(name: str):
     return db_delete(name)
 
 tools = [
-    search_candidate,
-    score_candidate,
+    find_professional_profiles,
+    get_profile_content,
+    score_candidate_profiles,
     insert_candidate_record,
     select_candidate_record,
     list_all_candidates,
@@ -124,8 +132,9 @@ def tool_node(state: AgentState):
         
         # Mapping tool names to functions
         tool_func = {
-            "search_candidate": search_candidate,
-            "score_candidate": score_candidate,
+            "find_professional_profiles": find_professional_profiles,
+            "get_profile_content": get_profile_content,
+            "score_candidate_profiles": score_candidate_profiles,
             "insert_candidate_record": insert_candidate_record,
             "select_candidate_record": select_candidate_record,
             "list_all_candidates": list_all_candidates,

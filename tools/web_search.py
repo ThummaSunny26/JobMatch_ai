@@ -7,45 +7,36 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 
 def web_search(query: str):
     """
-    Responsible for discovering candidate information online.
-    Prioritizes LinkedIn, GitHub, and professional portfolios.
+    Finds the most relevant professional profile URLs for a candidate.
+    Prioritizes LinkedIn, GitHub, and personal portfolios.
     """
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
-        return {"results": [], "urls": [], "error": "TAVILY_API_KEY not found"}
+        return {"urls": [], "error": "TAVILY_API_KEY not found"}
 
     client = TavilyClient(api_key=api_key)
     try:
-        # Heavily prioritizing professional platforms in the query
-        professional_query = f"{query} site:linkedin.com OR site:github.com OR site:behance.net OR portfolio resume"
+        # Fine-tuned query to find homepages and top professional profiles
+        professional_query = f'{query} official website OR LinkedIn OR GitHub OR portfolio'
         
-        # Advanced search for maximum relevance
         response = client.search(
             query=professional_query, 
             search_depth="advanced",
-            max_results=8, # Increased for better coverage
-            include_raw_content=False
+            max_results=8
         )
         
         results = response.get('results', [])
         
-        # Prioritize LinkedIn and GitHub URLs in the response
-        sorted_results = sorted(results, key=lambda x: (
-            'linkedin.com' in x.get('url', '').lower() or 
-            'github.com' in x.get('url', '').lower()
-        ), reverse=True)
+        # Rank URLs by professional relevance
+        def rank_url(url):
+            if 'linkedin.com/in' in url.lower(): return 1
+            if 'github.com/' in url.lower(): return 2
+            if 'portfolio' in url.lower() or 'resume' in url.lower(): return 3
+            return 4
+
+        sorted_urls = sorted([res.get('url') for res in results], key=rank_url)
         
-        formatted_results = []
-        for res in sorted_results:
-            formatted_results.append({
-                "title": res.get("title"),
-                "url": res.get("url"),
-                "content": res.get("content")[:1500] # Increased context
-            })
-            
-        return {
-            "results": formatted_results,
-            "urls": [res.get('url') for res in sorted_results]
-        }
+        # Return only the top 3-4 most relevant URLs
+        return {"urls": sorted_urls[:4]}
     except Exception as e:
-        return {"results": [], "urls": [], "error": f"Professional search failed: {str(e)}"}
+        return {"urls": [], "error": f"URL search failed: {str(e)}"}

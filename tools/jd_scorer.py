@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 # Load environment variables from the project root
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 
-def jd_scorer(candidate_info: str, job_description: str, context_hints: str = None):
+def jd_scorer(candidate_info: str, job_description: str):
     """
-    Evaluates a candidate's profile against a given job description.
+    Evaluates aggregated profile content against a given job description.
     Provides a quantitative score (0-100) along with qualitative feedback.
     """
     model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -18,7 +18,6 @@ def jd_scorer(candidate_info: str, job_description: str, context_hints: str = No
     base_url = None
     if api_key and api_key.startswith("sk-or-v1"):
         base_url = "https://openrouter.ai/api/v1"
-        # For OpenRouter, ensure model name is prefixed correctly if it's not already
         if "/" not in model_name:
             model_name = f"openai/{model_name}"
     
@@ -30,31 +29,29 @@ def jd_scorer(candidate_info: str, job_description: str, context_hints: str = No
     )
     
     prompt = ChatPromptTemplate.from_template("""
-    You are an elite technical recruiter specialized in high-stakes hiring. 
-    Analyze the following candidate info against the job description.
-    
-    Candidate Info (Aggregated from Web Search): 
+    You are an elite technical recruiter. Synthesize and evaluate the aggregated profile content against the job description.
+
+    Aggregated Profile Content (from LinkedIn, GitHub, etc.):
     {candidate_info}
     
-    Job Description: 
+    Job Description:
     {job_description}
     
     Instructions:
-    1. Identify the candidate's core technical stack and experience level.
-    2. Cross-reference their LinkedIn/GitHub/Portfolio data if available in the Info.
-    3. Look for evidence of specific achievements or projects relevant to the JD.
-    4. Provide a quantitative score (0-100) and qualitative feedback.
+    1. Cross-reference all provided profile content to build a holistic view of the candidate.
+    2. Identify core technical skills, experience level, and specific project achievements.
+    3. Provide a score (0-100) based on the rubric below and detailed qualitative feedback.
     
     Output JSON format:
     - score: integer
-    - strengths: top 3 specific professional matches
-    - gaps: top 3 missing or unverified critical skills
-    - recommendation: concise professional judgment
+    - strengths: top 3-4 specific professional matches
+    - gaps: top 3-4 missing or unverified critical skills
+    - recommendation: concise professional judgment (e.g., "Strongly Recommend for Backend Roles")
     
-    Scoring Scale:
-    - 90+: Perfect match with verified high-impact experience.
-    - 75-89: Strong match, minimal training needed.
-    - 50-74: Partial match or unverified data (mention "Needs Profile Verification").
+    Scoring Rubric:
+    - 90+: Exceptional match with verified, high-impact experience across multiple profiles.
+    - 75-89: Strong match, minimal training needed. Evidence present in at least one primary profile.
+    - 50-74: Partial match or unverified data. Mention "Needs Deeper Vetting."
     - <50: Unsuitable or unrelated background.
     """)
     
@@ -62,21 +59,17 @@ def jd_scorer(candidate_info: str, job_description: str, context_hints: str = No
     
     try:
         response = chain.invoke({
-            "candidate_info": candidate_info[:4000], # Prevent context window overflow
-            "job_description": job_description[:2000],
-            "context_hints": context_hints or "None"
+            "candidate_info": candidate_info[:12000], # Allow larger context for multiple profiles
+            "job_description": job_description[:4000],
         })
         
-        # Extract content and parse JSON
         content = response.content.strip()
-        # Handle cases where the model might wrap JSON in markdown blocks
         if "```json" in content:
             content = content.split("```json")[1].split("```")[0].strip()
         elif "```" in content:
             content = content.split("```")[1].split("```")[0].strip()
             
         result = json.loads(content)
-        # Ensure numeric score
         result["score"] = int(result.get("score", 0))
         return result
     except Exception as e:
@@ -84,5 +77,5 @@ def jd_scorer(candidate_info: str, job_description: str, context_hints: str = No
             "score": 0,
             "strengths": "N/A",
             "gaps": f"Error: {str(e)}",
-            "recommendation": "Error during evaluation"
+            "recommendation": "Error during scoring"
         }
