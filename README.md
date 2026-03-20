@@ -13,19 +13,27 @@ JobMatch AI is a production-ready, autonomous recruitment assistant designed to 
   - **Performance Analytics**: Visual score charts and top-performer rankings.
 - **Robust Data Management**: Built-in **SQLite** database with automated schema migrations and timestamped record tracking.
 
-## 🧠 Agentic Flow & Architecture
+## 🧠 Technical Deep Dive (Submission Review)
 
-The agent's intelligence is built on a structured **StateGraph** that orchestrates the following flow:
+During the submission review, the following core concepts are key to understanding the agent's behavior:
 
-1.  **State Management**: Uses `AgentState` to track message history, iteration counts, and candidate metadata.
-2.  **The Graph**:
-    - **Agent Node**: Processes the current state using a sophisticated system prompt and the ReAct pattern.
-    - **Tool Node**: Executes requested actions (Search, Score, Database operations) and returns observations.
-    - **Conditional Routing**: A router determines if the agent needs more information (loop to tools) or has reached a final recommendation.
-3.  **Prompting Strategy**:
-    - **Instructional Guidance**: The system prompt provides a clear 6-step workflow for the agent to follow.
-    - **Constraint Handling**: Includes explicit rules for scoring when data is missing or mismatched.
-    - **Safety Loops**: Implements a maximum iteration limit (8) to ensure predictable termination.
+### 1. Prompting Techniques & ReAct Pattern
+The system prompt in [prompts.py](file:///c:/Users/Admin/Desktop/Job_Match_AI/agent/prompts.py) uses the **ReAct framework** to guide the agent:
+- **Identity**: Sets the persona as "JobMatch AI", an autonomous recruiter.
+- **Workflow**: Provides a step-by-step logic (Search → Score → Save → Verify) to minimize hallucinations.
+- **Constraint-Based Scoring**: Defines specific numeric ranges for edge cases (e.g., 40-55 for missing profiles) to ensure consistent evaluation.
+
+### 2. How the Prompt Guides Tools
+The agent uses **LLM tool binding** (function calling). The model decides which tool to call based on the docstrings and argument schemas defined in [agent.py](file:///c:/Users/Admin/Desktop/Job_Match_AI/agent/agent.py). For example, if the agent's "Thought" determines it needs to find a LinkedIn profile, it automatically identifies the `search_candidate` tool as the matching action.
+
+### 3. Agentic Flow (LangGraph)
+The flow is orchestrated in [agent.py](file:///c:/Users/Admin/Desktop/Job_Match_AI/agent/agent.py) using a `StateGraph`:
+- **State**: A `TypedDict` that tracks the message history, iteration count, and evaluation data.
+- **Nodes**: 
+    - `agent_node`: Responsible for reasoning and generating tool calls or final responses.
+    - `tool_node`: Executes the requested tools and returns observations to the agent.
+- **Conditional Edge**: The `router` function checks if the LLM generated `tool_calls`. If yes, it routes to `tools`; if no, it routes to `END`.
+- **The Loop**: The cycle between `agent` and `tools` continues until the agent provides a final recommendation or hits the 8-iteration limit.
 
 ## 🛠️ Tech Stack
 
