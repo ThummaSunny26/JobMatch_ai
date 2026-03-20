@@ -220,11 +220,17 @@ elif menu == "Candidate Database":
         
         # Delete functionality
         with st.expander("Manage Records"):
-            name_to_delete = st.selectbox("Select Candidate to Delete", [""] + list(df['Name'].unique()))
-            if st.button("Delete Record") and name_to_delete:
-                db_delete(name_to_delete)
-                st.success(f"Deleted record for {name_to_delete}")
-                st.rerun()
+            # Ensure we are using the actual names for the selectbox but cleaning them for display if needed
+            all_names = [c.get("name") for c in db_list()]
+            name_to_delete = st.selectbox("Select Candidate to Delete", [""] + all_names)
+            
+            if name_to_delete:
+                if st.button("Delete Record"):
+                    result = db_delete(name_to_delete)
+                    st.success(f"Action: {result}")
+                    # Brief pause before refresh to show success message
+                    time.sleep(1)
+                    st.rerun()
 
 elif menu == "Top Candidates":
     st.title("🏆 Top Performers")

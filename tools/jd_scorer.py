@@ -30,23 +30,32 @@ def jd_scorer(candidate_info: str, job_description: str, context_hints: str = No
     )
     
     prompt = ChatPromptTemplate.from_template("""
-    You are an expert technical recruiter. Evaluate the following candidate against the job description.
+    You are an elite technical recruiter specialized in high-stakes hiring. 
+    Analyze the following candidate info against the job description.
     
-    Candidate Info: {candidate_info}
-    Job Description: {job_description}
-    Context Hints: {context_hints}
+    Candidate Info (Aggregated from Web Search): 
+    {candidate_info}
     
-    Output a JSON object with:
-    1. score: (integer 0-100)
-    2. strengths: (concise list of top 3 matches)
-    3. gaps: (concise list of top 3 missing skills or experiences)
-    4. recommendation: (One sentence summary: "Highly Recommend", "Recommend", "Consider", or "Do Not Recommend" with reason)
+    Job Description: 
+    {job_description}
     
-    Scoring Rubric:
-    - 90-100: Exceptional match in all key areas.
-    - 70-89: Strong match with minor gaps.
-    - 40-69: Partial match or insufficient profile data found online.
-    - <40: Mismatched role or severe skill gaps.
+    Instructions:
+    1. Identify the candidate's core technical stack and experience level.
+    2. Cross-reference their LinkedIn/GitHub/Portfolio data if available in the Info.
+    3. Look for evidence of specific achievements or projects relevant to the JD.
+    4. Provide a quantitative score (0-100) and qualitative feedback.
+    
+    Output JSON format:
+    - score: integer
+    - strengths: top 3 specific professional matches
+    - gaps: top 3 missing or unverified critical skills
+    - recommendation: concise professional judgment
+    
+    Scoring Scale:
+    - 90+: Perfect match with verified high-impact experience.
+    - 75-89: Strong match, minimal training needed.
+    - 50-74: Partial match or unverified data (mention "Needs Profile Verification").
+    - <50: Unsuitable or unrelated background.
     """)
     
     chain = prompt | llm

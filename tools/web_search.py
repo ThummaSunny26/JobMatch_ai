@@ -8,7 +8,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 def web_search(query: str):
     """
     Responsible for discovering candidate information online.
-    It queries external sources, prioritizing platforms like LinkedIn and GitHub.
+    Prioritizes LinkedIn, GitHub, and professional portfolios.
     """
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
@@ -16,30 +16,36 @@ def web_search(query: str):
 
     client = TavilyClient(api_key=api_key)
     try:
-        # Enhancing the search query to focus on professional profiles
-        professional_query = f"{query} professional profile LinkedIn GitHub portfolio resume"
+        # Heavily prioritizing professional platforms in the query
+        professional_query = f"{query} site:linkedin.com OR site:github.com OR site:behance.net OR portfolio resume"
         
-        # Using search_depth='advanced' for more comprehensive results
+        # Advanced search for maximum relevance
         response = client.search(
             query=professional_query, 
             search_depth="advanced",
-            max_results=5
+            max_results=8, # Increased for better coverage
+            include_raw_content=False
         )
         
         results = response.get('results', [])
         
-        # Structure the observation for better LLM parsing
+        # Prioritize LinkedIn and GitHub URLs in the response
+        sorted_results = sorted(results, key=lambda x: (
+            'linkedin.com' in x.get('url', '').lower() or 
+            'github.com' in x.get('url', '').lower()
+        ), reverse=True)
+        
         formatted_results = []
-        for res in results:
+        for res in sorted_results:
             formatted_results.append({
                 "title": res.get("title"),
                 "url": res.get("url"),
-                "content": res.get("content")[:1000] # Snippet for context
+                "content": res.get("content")[:1500] # Increased context
             })
             
         return {
             "results": formatted_results,
-            "urls": [res.get('url') for res in results]
+            "urls": [res.get('url') for res in sorted_results]
         }
     except Exception as e:
-        return {"results": [], "urls": [], "error": f"Search failed: {str(e)}"}
+        return {"results": [], "urls": [], "error": f"Professional search failed: {str(e)}"}

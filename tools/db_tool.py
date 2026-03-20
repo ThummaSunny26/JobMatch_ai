@@ -34,29 +34,35 @@ def get_connection():
         raise
 
 def db_insert(name, score, strengths, gaps, recommendation, profile_url):
-    """Inserts or updates a candidate record."""
+    """Inserts or updates a candidate record. Cleans the name to remove any prefixes."""
     try:
+        # Robustly clean the name before insertion
+        clean_name = name.replace("Score ", "").strip()
+        
         conn = get_connection()
         cursor = conn.cursor()
         # Using INSERT OR REPLACE for production flexibility
         cursor.execute("""
             INSERT OR REPLACE INTO candidates (name, score, strengths, gaps, recommendation, profile_url)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (name, score, strengths, gaps, recommendation, profile_url))
+        """, (clean_name, score, strengths, gaps, recommendation, profile_url))
         conn.commit()
         conn.close()
-        logger.info(f"Successfully inserted record for: {name}")
+        logger.info(f"Successfully inserted record for: {clean_name}")
         return "Record inserted/updated successfully."
     except Exception as e:
         logger.error(f"Insert failed for {name}: {e}")
         return f"Error: {str(e)}"
 
 def db_select(name):
-    """Retrieves a specific candidate by name."""
+    """Retrieves a specific candidate by name (robustly)."""
     try:
+        # Try both the original and cleaned name for robustness
+        clean_name = name.replace("Score ", "").strip()
+        
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM candidates WHERE name = ?", (name,))
+        cursor.execute("SELECT * FROM candidates WHERE name = ? OR name = ?", (name, clean_name))
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -93,14 +99,17 @@ def db_top(limit=3):
         return []
 
 def db_delete(name):
-    """Deletes a candidate record by name."""
+    """Deletes a candidate record by name (robustly)."""
     try:
+        # Try both original and cleaned name for delete to ensure it works
+        clean_name = name.replace("Score ", "").strip()
+        
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM candidates WHERE name = ?", (name,))
+        cursor.execute("DELETE FROM candidates WHERE name = ? OR name = ?", (name, clean_name))
         conn.commit()
         conn.close()
-        logger.info(f"Deleted record for: {name}")
+        logger.info(f"Deleted record for: {name} (cleaned: {clean_name})")
         return f"Record for {name} deleted."
     except Exception as e:
         logger.error(f"Delete failed for {name}: {e}")
